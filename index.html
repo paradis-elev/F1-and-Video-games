@@ -140,3 +140,136 @@ animate();
 </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FPS Shooter</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #instructions {
+            position: absolute;
+            top: 40%;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 30px;
+        }
+    </style>
+</head>
+
+<body>
+<div id="instructions">Click to start</div>
+
+<!-- Load Three.js (stable CDN that works on GitHub Pages) -->
+<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+
+<script>
+/* ---------- Scene ---------- */
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* ---------- Light ---------- */
+let light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(3, 5, 2);
+scene.add(light);
+
+/* ---------- Floor ---------- */
+let floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(300, 300),
+    new THREE.MeshPhongMaterial({ color: 0x444444 })
+);
+floor.rotation.x = -Math.PI/2;
+scene.add(floor);
+
+/* ---------- Targets ---------- */
+let targets = [];
+function spawnTarget(x, z) {
+    let cube = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshPhongMaterial({ color: 0xff0000 })
+    );
+    cube.position.set(x, 0.5, z);
+    scene.add(cube);
+    targets.push(cube);
+}
+spawnTarget(5, -5);
+spawnTarget(-5, -10);
+spawnTarget(3, -15);
+
+/* ---------- Controls ---------- */
+let controlsEnabled = false;
+let yaw = 0, pitch = 0;
+let keys = {};
+
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
+
+const instructions = document.getElementById("instructions");
+
+instructions.addEventListener("click", () => {
+    document.body.requestPointerLock();
+});
+
+document.addEventListener("pointerlockchange", () => {
+    controlsEnabled = (document.pointerLockElement === document.body);
+    instructions.style.display = controlsEnabled ? "none" : "block";
+});
+
+document.addEventListener("mousemove", e => {
+    if (!controlsEnabled) return;
+    yaw   -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
+    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+});
+
+/* ---------- Shooting ---------- */
+document.addEventListener("mousedown", () => {
+    if (!controlsEnabled) return;
+
+    let ray = new THREE.Raycaster();
+    let dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    ray.set(camera.position, dir);
+
+    let hits = ray.intersectObjects(targets);
+
+    if (hits.length > 0) {
+        let hitTarget = hits[0].object;
+        scene.remove(hitTarget);
+        targets = targets.filter(t => t !== hitTarget);
+    }
+});
+
+/* ---------- Loop ---------- */
+camera.position.set(0, 1.6, 5);
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    if (controlsEnabled) {
+        camera.rotation.set(pitch, yaw, 0);
+
+        let speed = 0.15;
+        let forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+
+        let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).negate();
+
+        if (keys["w"]) camera.position.addScaledVector(forward, speed);
+        if (keys["s"]) camera.position.addScaledVector(forward, -speed);
+        if (keys["a"]) camera.position.addScaledVector(right, speed);
+        if (keys["d"]) camera.position.addScaledVector(right, -speed);
+    }
+
+    renderer.render(scene, camera);
+}
+animate();
+
+</script>
+</body>
+</html>
