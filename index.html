@@ -132,3 +132,233 @@ animate();
 </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FPS Shooter Enhanced</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+
+        /* Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin-left: -10px;
+            margin-top: -10px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #crosshair div {
+            position: absolute;
+            background: white;
+        }
+        #crosshair #vline {
+            width: 2px;
+            height: 20px;
+            left: 9px;
+        }
+        #crosshair #hline {
+            width: 20px;
+            height: 2px;
+            top: 9px;
+        }
+
+        /* Instructions */
+        #instructions {
+            position: absolute;
+            top: 40%;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 30px;
+            z-index: 20;
+        }
+    </style>
+</head>
+
+<body>
+<!-- Crosshair -->
+<div id="crosshair">
+    <div id="vline"></div>
+    <div id="hline"></div>
+</div>
+
+<div id="instructions">Click to start</div>
+
+<!-- THREE.JS (latest stable CDN) -->
+<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+
+<script>
+/* -----------------------------------------
+   Scene Setup
+----------------------------------------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x202030);
+
+/* Camera */
+const camera = new THREE.PerspectiveCamera(
+    75, window.innerWidth / window.innerHeight, 0.1, 2000
+);
+camera.position.set(0, 1.6, 5);
+
+/* Renderer */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.shadowMap.enabled = true;
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* -----------------------------------------
+   Lighting (better graphics)
+----------------------------------------- */
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambient);
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+sun.position.set(5, 10, 5);
+sun.castShadow = true;
+scene.add(sun);
+
+/* -----------------------------------------
+   Floor + Texture
+----------------------------------------- */
+const texLoader = new THREE.TextureLoader();
+const floorTexture = texLoader.load(
+    "https://threejs.org/examples/textures/checker.png"
+);
+floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+floorTexture.repeat.set(40, 40);
+
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(300, 300),
+    new THREE.MeshStandardMaterial({ map: floorTexture })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+/* -----------------------------------------
+   Targets with better materials
+----------------------------------------- */
+let targets = [];
+
+function spawnTarget(x, z) {
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0xff4444,
+        metalness: 0.4,
+        roughness: 0.3
+    });
+    const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+    const cube = new THREE.Mesh(geo, mat);
+    cube.position.set(x, 0.6, z);
+    cube.castShadow = true;
+    scene.add(cube);
+    targets.push(cube);
+}
+
+spawnTarget(5, -10);
+spawnTarget(-4, -8);
+spawnTarget(2, -18);
+spawnTarget(8, -15);
+
+/* -----------------------------------------
+   FPS Controls
+----------------------------------------- */
+let instructions = document.getElementById("instructions");
+let pointerLocked = false;
+
+instructions.addEventListener("click", () => {
+    document.body.requestPointerLock();
+});
+
+document.addEventListener("pointerlockchange", () => {
+    pointerLocked = document.pointerLockElement === document.body;
+    instructions.style.display = pointerLocked ? "none" : "block";
+});
+
+/* Mouse Look */
+let yaw = 0, pitch = 0;
+
+document.addEventListener("mousemove", (e) => {
+    if (!pointerLocked) return;
+    yaw -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
+    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+});
+
+/* Movement */
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+/* -----------------------------------------
+   Shooting (raycast)
+----------------------------------------- */
+document.addEventListener("mousedown", () => {
+    if (!pointerLocked) return;
+
+    // Muzzle flash
+    flashLight.power = 40;
+    setTimeout(() => flashLight.power = 0, 80);
+
+    const ray = new THREE.Raycaster();
+    let dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    ray.set(camera.position, dir);
+
+    let hits = ray.intersectObjects(targets);
+    if (hits.length > 0) {
+        let t = hits[0].object;
+        scene.remove(t);
+        targets = targets.filter(x => x !== t);
+    }
+});
+
+/* Muzzle Flash Light (better effect) */
+const flashLight = new THREE.PointLight(0xffcc88, 0, 10);
+flashLight.position.set(0, 0, 0);
+scene.add(flashLight);
+
+/* -----------------------------------------
+   Game Loop
+----------------------------------------- */
+function animate() {
+    requestAnimationFrame(animate);
+
+    // Camera rotation
+    camera.rotation.set(pitch, yaw, 0);
+
+    // Movement
+    const speed = 0.15;
+    let forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).negate();
+
+    if (keys["w"]) camera.position.addScaledVector(forward, speed);
+    if (keys["s"]) camera.position.addScaledVector(forward, -speed);
+    if (keys["a"]) camera.position.addScaledVector(right, speed);
+    if (keys["d"]) camera.position.addScaledVector(right, -speed);
+
+    // Flash follows camera
+    flashLight.position.copy(camera.position);
+
+    renderer.render(scene, camera);
+}
+
+animate();
+
+/* Resize handler */
+window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+
+</body>
+</html>
