@@ -1,364 +1,241 @@
+===========================================
+=         3D FPS SHOOTER – UNITY          =
+=       Complete Scripts + Setup Guide    =
+===========================================
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>FPS Shooter</title>
-    <style>
-        body { margin: 0; overflow: hidden; }
-        #instructions {
-            position: absolute;
-            top: 40%;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-size: 30px;
-        }
-    </style>
-</head>
 
-<body>
-<div id="instructions">Click to start</div>
+-------------------------------------------
+1. PROJECT STRUCTURE
+-------------------------------------------
 
-<!-- Load Three.js (stable CDN that works on GitHub Pages) -->
-<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+Assets/
+  ├── Scripts/
+  │     ├── PlayerMovement.cs
+  │     ├── MouseLook.cs
+  │     ├── Gun.cs
+  │     └── EnemyAI.cs
+  ├── Prefabs/
+  │     ├── Player.prefab
+  │     └── Enemy.prefab
+  ├── Scenes/
+  │     └── MainScene.unity
+  └── Materials/
 
-<script>
-/* ---------- Scene ---------- */
-let scene = new THREE.Scene();
-let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-let renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
 
-/* ---------- Light ---------- */
-let light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(3, 5, 2);
-scene.add(light);
+-------------------------------------------
+2. PLAYER MOVEMENT SCRIPT (WASD + Jump)
+-------------------------------------------
+File: PlayerMovement.cs
 
-/* ---------- Floor ---------- */
-let floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(300, 300),
-    new THREE.MeshPhongMaterial({ color: 0x444444 })
-);
-floor.rotation.x = -Math.PI/2;
-scene.add(floor);
+using UnityEngine;
 
-/* ---------- Targets ---------- */
-let targets = [];
-function spawnTarget(x, z) {
-    let cube = new THREE.Mesh(
-        new THREE.BoxGeometry(1, 1, 1),
-        new THREE.MeshPhongMaterial({ color: 0xff0000 })
-    );
-    cube.position.set(x, 0.5, z);
-    scene.add(cube);
-    targets.push(cube);
-}
-spawnTarget(5, -5);
-spawnTarget(-5, -10);
-spawnTarget(3, -15);
+public class PlayerMovement : MonoBehaviour
+{
+    public float speed = 6f;
+    public float gravity = -9.81f;
+    public float jumpHeight = 2f;
 
-/* ---------- Controls ---------- */
-let controlsEnabled = false;
-let yaw = 0, pitch = 0;
-let keys = {};
+    CharacterController controller;
+    Vector3 velocity;
 
-document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-document.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
-
-const instructions = document.getElementById("instructions");
-
-instructions.addEventListener("click", () => {
-    document.body.requestPointerLock();
-});
-
-document.addEventListener("pointerlockchange", () => {
-    controlsEnabled = (document.pointerLockElement === document.body);
-    instructions.style.display = controlsEnabled ? "none" : "block";
-});
-
-document.addEventListener("mousemove", e => {
-    if (!controlsEnabled) return;
-    yaw   -= e.movementX * 0.002;
-    pitch -= e.movementY * 0.002;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-});
-
-/* ---------- Shooting ---------- */
-document.addEventListener("mousedown", () => {
-    if (!controlsEnabled) return;
-
-    let ray = new THREE.Raycaster();
-    let dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
-    ray.set(camera.position, dir);
-
-    let hits = ray.intersectObjects(targets);
-
-    if (hits.length > 0) {
-        let hitTarget = hits[0].object;
-        scene.remove(hitTarget);
-        targets = targets.filter(t => t !== hitTarget);
-    }
-});
-
-/* ---------- Loop ---------- */
-camera.position.set(0, 1.6, 5);
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (controlsEnabled) {
-        camera.rotation.set(pitch, yaw, 0);
-
-        let speed = 0.15;
-        let forward = new THREE.Vector3();
-        camera.getWorldDirection(forward);
-        forward.y = 0;
-        forward.normalize();
-
-        let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).negate();
-
-        if (keys["w"]) camera.position.addScaledVector(forward, speed);
-        if (keys["s"]) camera.position.addScaledVector(forward, -speed);
-        if (keys["a"]) camera.position.addScaledVector(right, speed);
-        if (keys["d"]) camera.position.addScaledVector(right, -speed);
+    void Start()
+    {
+        controller = GetComponent<CharacterController>();
     }
 
-    renderer.render(scene, camera);
-}
-animate();
+    void Update()
+    {
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
 
-</script>
-</body>
-</html>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>FPS Shooter Enhanced</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; }
+        Vector3 move = transform.right * x + transform.forward * z;
+        controller.Move(move * speed * Time.deltaTime);
 
-        /* Crosshair */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 20px;
-            height: 20px;
-            margin-left: -10px;
-            margin-top: -10px;
-            pointer-events: none;
-            z-index: 10;
-        }
-        #crosshair div {
-            position: absolute;
-            background: white;
-        }
-        #crosshair #vline {
-            width: 2px;
-            height: 20px;
-            left: 9px;
-        }
-        #crosshair #hline {
-            width: 20px;
-            height: 2px;
-            top: 9px;
+        if (Input.GetButtonDown("Jump") && controller.isGrounded)
+        {
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
-        /* Instructions */
-        #instructions {
-            position: absolute;
-            top: 40%;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-size: 30px;
-            z-index: 20;
-        }
-    </style>
-</head>
-
-<body>
-<!-- Crosshair -->
-<div id="crosshair">
-    <div id="vline"></div>
-    <div id="hline"></div>
-</div>
-
-<div id="instructions">Click to start</div>
-
-<!-- THREE.JS (latest stable CDN) -->
-<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
-
-<script>
-/* -----------------------------------------
-   Scene Setup
------------------------------------------ */
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x202030);
-
-/* Camera */
-const camera = new THREE.PerspectiveCamera(
-    75, window.innerWidth / window.innerHeight, 0.1, 2000
-);
-camera.position.set(0, 1.6, 5);
-
-/* Renderer */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.shadowMap.enabled = true;
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-/* -----------------------------------------
-   Lighting (better graphics)
------------------------------------------ */
-const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambient);
-
-const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(5, 10, 5);
-sun.castShadow = true;
-scene.add(sun);
-
-/* -----------------------------------------
-   Floor + Texture
------------------------------------------ */
-const texLoader = new THREE.TextureLoader();
-const floorTexture = texLoader.load(
-    "https://threejs.org/examples/textures/checker.png"
-);
-floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
-floorTexture.repeat.set(40, 40);
-
-const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(300, 300),
-    new THREE.MeshStandardMaterial({ map: floorTexture })
-);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-/* -----------------------------------------
-   Targets with better materials
------------------------------------------ */
-let targets = [];
-
-function spawnTarget(x, z) {
-    const mat = new THREE.MeshStandardMaterial({
-        color: 0xff4444,
-        metalness: 0.4,
-        roughness: 0.3
-    });
-    const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-    const cube = new THREE.Mesh(geo, mat);
-    cube.position.set(x, 0.6, z);
-    cube.castShadow = true;
-    scene.add(cube);
-    targets.push(cube);
-}
-
-spawnTarget(5, -10);
-spawnTarget(-4, -8);
-spawnTarget(2, -18);
-spawnTarget(8, -15);
-
-/* -----------------------------------------
-   FPS Controls
------------------------------------------ */
-let instructions = document.getElementById("instructions");
-let pointerLocked = false;
-
-instructions.addEventListener("click", () => {
-    document.body.requestPointerLock();
-});
-
-document.addEventListener("pointerlockchange", () => {
-    pointerLocked = document.pointerLockElement === document.body;
-    instructions.style.display = pointerLocked ? "none" : "block";
-});
-
-/* Mouse Look */
-let yaw = 0, pitch = 0;
-
-document.addEventListener("mousemove", (e) => {
-    if (!pointerLocked) return;
-    yaw -= e.movementX * 0.002;
-    pitch -= e.movementY * 0.002;
-    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
-});
-
-/* Movement */
-let keys = {};
-document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
-
-/* -----------------------------------------
-   Shooting (raycast)
------------------------------------------ */
-document.addEventListener("mousedown", () => {
-    if (!pointerLocked) return;
-
-    // Muzzle flash
-    flashLight.power = 40;
-    setTimeout(() => flashLight.power = 0, 80);
-
-    const ray = new THREE.Raycaster();
-    let dir = new THREE.Vector3();
-    camera.getWorldDirection(dir);
-    ray.set(camera.position, dir);
-
-    let hits = ray.intersectObjects(targets);
-    if (hits.length > 0) {
-        let t = hits[0].object;
-        scene.remove(t);
-        targets = targets.filter(x => x !== t);
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
     }
-});
-
-/* Muzzle Flash Light (better effect) */
-const flashLight = new THREE.PointLight(0xffcc88, 0, 10);
-flashLight.position.set(0, 0, 0);
-scene.add(flashLight);
-
-/* -----------------------------------------
-   Game Loop
------------------------------------------ */
-function animate() {
-    requestAnimationFrame(animate);
-
-    // Camera rotation
-    camera.rotation.set(pitch, yaw, 0);
-
-    // Movement
-    const speed = 0.15;
-    let forward = new THREE.Vector3();
-    camera.getWorldDirection(forward);
-    forward.y = 0;
-    forward.normalize();
-
-    let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).negate();
-
-    if (keys["w"]) camera.position.addScaledVector(forward, speed);
-    if (keys["s"]) camera.position.addScaledVector(forward, -speed);
-    if (keys["a"]) camera.position.addScaledVector(right, speed);
-    if (keys["d"]) camera.position.addScaledVector(right, -speed);
-
-    // Flash follows camera
-    flashLight.position.copy(camera.position);
-
-    renderer.render(scene, camera);
 }
 
-animate();
 
-/* Resize handler */
-window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
-</script>
+-------------------------------------------
+3. MOUSE LOOK SCRIPT
+-------------------------------------------
+File: MouseLook.cs
 
-</body>
-</html>
+using UnityEngine;
+
+public class MouseLook : MonoBehaviour
+{
+    public float sensitivity = 300f;
+    public Transform playerBody;
+
+    float xRotation = 0f;
+
+    void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+    }
+
+    void Update()
+    {
+        float mouseX = Input.GetAxis("Mouse X") * sensitivity * Time.deltaTime;
+        float mouseY = Input.GetAxis("Mouse Y") * sensitivity * Time.deltaTime;
+
+        xRotation -= mouseY;
+        xRotation = Mathf.Clamp(xRotation, -70f, 70f);
+
+        transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        playerBody.Rotate(Vector3.up * mouseX);
+    }
+}
+
+
+-------------------------------------------
+4. GUN + SHOOTING SCRIPT
+-------------------------------------------
+File: Gun.cs
+
+using UnityEngine;
+
+public class Gun : MonoBehaviour
+{
+    public float damage = 25f;
+    public float range = 100f;
+    public Camera fpsCam;
+    public ParticleSystem muzzleFlash;
+
+    void Update()
+    {
+        if (Input.GetButtonDown("Fire1"))
+        {
+            Shoot();
+        }
+    }
+
+    void Shoot()
+    {
+        muzzleFlash.Play();
+
+        RaycastHit hit;
+        if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, range))
+        {
+            EnemyAI enemy = hit.transform.GetComponent<EnemyAI>();
+            if (enemy != null)
+            {
+                enemy.TakeDamage(damage);
+            }
+        }
+    }
+}
+
+
+-------------------------------------------
+5. ENEMY AI SCRIPT
+-------------------------------------------
+File: EnemyAI.cs
+
+using UnityEngine;
+using UnityEngine.AI;
+
+public class EnemyAI : MonoBehaviour
+{
+    public float health = 50f;
+    public NavMeshAgent agent;
+    public Transform player;
+
+    void Update()
+    {
+        agent.SetDestination(player.position);
+    }
+
+    public void TakeDamage(float amount)
+    {
+        health -= amount;
+        if (health <= 0)
+            Destroy(gameObject);
+    }
+}
+
+
+-------------------------------------------
+6. HOW TO SET UP THE GAME IN UNITY
+-------------------------------------------
+
+STEP 1 — Create a Unity 3D project.
+
+STEP 2 — Create folders:
+  - Assets/Scripts
+  - Assets/Prefabs
+  - Assets/Scenes
+
+STEP 3 — Add a Scene:
+  - File → New Scene
+  - Save as "MainScene"
+
+STEP 4 — Create the Player:
+  - Create an empty object "Player"
+  - Add:
+       • CharacterController component
+       • PlayerMovement.cs
+  - Add a Camera inside the Player:
+       • Add MouseLook.cs on Camera
+       • Drag Player -> playerBody field in inspector
+
+STEP 5 — Create the Gun:
+  - Create empty object "Gun" under Camera
+  - Add:
+       • Gun.cs
+       • Add a Particle System for muzzleFlash
+  - Drag camera to fpsCam field
+
+STEP 6 — Create Enemy:
+  - Create a 3D Capsule
+  - Add:
+       • NavMeshAgent
+       • EnemyAI.cs
+  - Drag Player to “player” field
+  - Save as Enemy.prefab
+
+STEP 7 — Map:
+  - Add a Terrain (GameObject → 3D → Terrain)
+  - Add obstacles (Cubes, walls, buildings)
+
+STEP 8 — NavMesh:
+  - Window → AI → Navigation
+  - Bake the NavMesh so enemies can walk
+
+STEP 9 — Lighting & Graphics:
+  - Add Directional Light
+  - Set shadows to "Soft"
+  - Add a Skybox (HDR)
+
+STEP 10 — Test the game:
+  - Press Play
+  - Move with WASD
+  - Look around with Mouse
+  - Shoot with Left Click
+
+
+-------------------------------------------
+7. HOW TO UPLOAD TO GITHUB
+-------------------------------------------
+
+1. Open a terminal inside your Unity project folder.
+2. Run:
+
+git init
+git add .
+git commit -m "Initial FPS Shooter"
+git branch -M main
+git remote add origin YOUR_GITHUB_LINK
+git push -u origin main
+
+
+===========================================
+=               END OF FILE               =
+===========================================
