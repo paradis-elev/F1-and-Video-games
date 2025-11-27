@@ -1,12 +1,13 @@
-===========================================
-=         3D FPS SHOOTER – UNITY          =
-=       Complete Scripts + Setup Guide    =
-===========================================
+===========================================================
+=                  FULL 3D FPS SHOOTER                    =
+=     Unity C# Scripts + Setup + WebGL + GitHub Guide     =
+=                    (One Single File)                    =
+===========================================================
 
 
--------------------------------------------
-1. PROJECT STRUCTURE
--------------------------------------------
+-----------------------------------------------------------
+SECTION 1 — PROJECT STRUCTURE
+-----------------------------------------------------------
 
 Assets/
   ├── Scripts/
@@ -22,9 +23,9 @@ Assets/
   └── Materials/
 
 
--------------------------------------------
-2. PLAYER MOVEMENT SCRIPT (WASD + Jump)
--------------------------------------------
+-----------------------------------------------------------
+SECTION 2 — PLAYER MOVEMENT SCRIPT
+-----------------------------------------------------------
 File: PlayerMovement.cs
 
 using UnityEngine;
@@ -62,9 +63,9 @@ public class PlayerMovement : MonoBehaviour
 }
 
 
--------------------------------------------
-3. MOUSE LOOK SCRIPT
--------------------------------------------
+-----------------------------------------------------------
+SECTION 3 — MOUSE LOOK SCRIPT
+-----------------------------------------------------------
 File: MouseLook.cs
 
 using UnityEngine;
@@ -95,9 +96,9 @@ public class MouseLook : MonoBehaviour
 }
 
 
--------------------------------------------
-4. GUN + SHOOTING SCRIPT
--------------------------------------------
+-----------------------------------------------------------
+SECTION 4 — GUN / SHOOTING SCRIPT
+-----------------------------------------------------------
 File: Gun.cs
 
 using UnityEngine;
@@ -134,9 +135,9 @@ public class Gun : MonoBehaviour
 }
 
 
--------------------------------------------
-5. ENEMY AI SCRIPT
--------------------------------------------
+-----------------------------------------------------------
+SECTION 5 — ENEMY AI SCRIPT
+-----------------------------------------------------------
 File: EnemyAI.cs
 
 using UnityEngine;
@@ -162,80 +163,94 @@ public class EnemyAI : MonoBehaviour
 }
 
 
--------------------------------------------
-6. HOW TO SET UP THE GAME IN UNITY
--------------------------------------------
+-----------------------------------------------------------
+SECTION 6 — UNITY SETUP INSTRUCTIONS
+-----------------------------------------------------------
 
-STEP 1 — Create a Unity 3D project.
-
-STEP 2 — Create folders:
-  - Assets/Scripts
-  - Assets/Prefabs
-  - Assets/Scenes
-
-STEP 3 — Add a Scene:
-  - File → New Scene
-  - Save as "MainScene"
-
-STEP 4 — Create the Player:
-  - Create an empty object "Player"
-  - Add:
-       • CharacterController component
-       • PlayerMovement.cs
-  - Add a Camera inside the Player:
-       • Add MouseLook.cs on Camera
-       • Drag Player -> playerBody field in inspector
-
-STEP 5 — Create the Gun:
-  - Create empty object "Gun" under Camera
-  - Add:
-       • Gun.cs
-       • Add a Particle System for muzzleFlash
-  - Drag camera to fpsCam field
-
-STEP 6 — Create Enemy:
-  - Create a 3D Capsule
-  - Add:
-       • NavMeshAgent
-       • EnemyAI.cs
-  - Drag Player to “player” field
-  - Save as Enemy.prefab
-
-STEP 7 — Map:
-  - Add a Terrain (GameObject → 3D → Terrain)
-  - Add obstacles (Cubes, walls, buildings)
-
-STEP 8 — NavMesh:
-  - Window → AI → Navigation
-  - Bake the NavMesh so enemies can walk
-
-STEP 9 — Lighting & Graphics:
-  - Add Directional Light
-  - Set shadows to "Soft"
-  - Add a Skybox (HDR)
-
-STEP 10 — Test the game:
-  - Press Play
-  - Move with WASD
-  - Look around with Mouse
-  - Shoot with Left Click
+1. Create a new Unity 3D project.
+2. Create folders: Assets/Scripts, Assets/Prefabs, Assets/Scenes.
+3. Add a new scene: save it as MainScene.
+4. Create Player:
+   - Create empty object "Player"
+   - Add CharacterController
+   - Add PlayerMovement.cs
+5. Add a Camera under Player:
+   - Add MouseLook.cs to the Camera
+   - Drag Player to "playerBody" field
+6. Create Gun:
+   - Empty object "Gun" under Camera
+   - Add Gun.cs
+   - Add a ParticleSystem as muzzleFlash
+7. Create Enemy:
+   - 3D Capsule
+   - Add NavMeshAgent
+   - Add EnemyAI.cs
+   - Drag Player to “player” field
+   - Make it a prefab
+8. Create simple map:
+   - Add Terrain
+   - Add cubes / walls / obstacles
+9. Bake NavMesh:
+   - Window → AI → Navigation → Bake
+10. Press Play to test.
 
 
--------------------------------------------
-7. HOW TO UPLOAD TO GITHUB
--------------------------------------------
+-----------------------------------------------------------
+SECTION 7 — UNITY WEBGL EXPORT (FOR GITHUB PAGES)
+-----------------------------------------------------------
 
-1. Open a terminal inside your Unity project folder.
-2. Run:
+To make the game work on:
 
-git init
-git add .
-git commit -m "Initial FPS Shooter"
-git branch -M main
-git remote add origin YOUR_GITHUB_LINK
-git push -u origin main
+https://paradis-elev.github.io/F1-and-Video-games/
+
+You MUST export for WebGL.
+
+Steps:
+
+1. File → Build Settings.
+2. Select **WebGL**.
+3. Click **Switch Platform**.
+4. Click **Build**.
+5. Choose a folder named `WebGLBuild`.
+
+Unity will generate:
+
+index.html  
+Build/  
+TemplateData/  
 
 
-===========================================
-=               END OF FILE               =
-===========================================
+-----------------------------------------------------------
+SECTION 8 — GITHUB PAGES DEPLOY GUIDE
+-----------------------------------------------------------
+
+Your repo must look like:
+
+F1-and-Video-games/
+  ├── index.html        (Unity’s index.html)
+  ├── Build/
+  └── TemplateData/
+
+Steps:
+
+1. Copy all WebGLBuild files into your repo root.
+2. Commit:
+
+   git add .
+   git commit -m "Add WebGL FPS game"
+   git push
+
+3. Go to GitHub → Settings → Pages:
+   - Branch: **main**
+   - Folder: **/root**
+
+4. Save.
+
+Your game will load at:
+
+https://paradis-elev.github.io/F1-and-Video-games/
+
+
+===========================================================
+=                     END OF ONE FILE                     =
+===========================================================
