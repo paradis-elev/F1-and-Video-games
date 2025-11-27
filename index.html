@@ -119,7 +119,9 @@ function animate(){
   });
 
   renderer.render(scene, camera);
-}
+}console.log('Camera position:', camera.position);
+console.log('Enemies positions:', enemies.map(e => e.position));
+
 animate();
 </script>
 </body>
