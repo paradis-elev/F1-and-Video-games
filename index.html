@@ -1,256 +1,126 @@
-===========================================================
-=                  FULL 3D FPS SHOOTER                    =
-=     Unity C# Scripts + Setup + WebGL + GitHub Guide     =
-=                    (One Single File)                    =
-===========================================================
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Simple Browser FPS</title>
+<style>
+  body { margin:0; overflow:hidden; }
+  canvas { display:block; width:100vw; height:100vh; background:#87ceeb; }
+  .crosshair {
+    position:absolute;
+    top:50%; left:50%;
+    width:10px; height:10px;
+    margin-left:-5px; margin-top:-5px;
+    border:2px solid black;
+    border-radius:50%;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div class="crosshair"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.154.0/examples/js/controls/PointerLockControls.js"></script>
+<script>
+// ======= Three.js Setup =======
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({canvas: document.getElementById('gameCanvas')});
+renderer.setSize(window.innerWidth, window.innerHeight);
 
------------------------------------------------------------
-SECTION 1 — PROJECT STRUCTURE
------------------------------------------------------------
+// ===== Lighting =====
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(5,10,7);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040));
 
-Assets/
-  ├── Scripts/
-  │     ├── PlayerMovement.cs
-  │     ├── MouseLook.cs
-  │     ├── Gun.cs
-  │     └── EnemyAI.cs
-  ├── Prefabs/
-  │     ├── Player.prefab
-  │     └── Enemy.prefab
-  ├── Scenes/
-  │     └── MainScene.unity
-  └── Materials/
+// ===== Ground =====
+const groundGeo = new THREE.BoxGeometry(100,1,100);
+const groundMat = new THREE.MeshPhongMaterial({color:0x228B22});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.position.y = -0.5;
+scene.add(ground);
 
+// ===== Controls =====
+const controls = new THREE.PointerLockControls(camera, document.body);
+document.body.addEventListener('click',()=>controls.lock(), false);
+camera.position.y = 1.6;
 
------------------------------------------------------------
-SECTION 2 — PLAYER MOVEMENT SCRIPT
------------------------------------------------------------
-File: PlayerMovement.cs
+let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+const speed = 5;
 
-using UnityEngine;
+document.addEventListener('keydown', (e)=>{
+  if(e.code==='KeyW') moveForward=true;
+  if(e.code==='KeyS') moveBackward=true;
+  if(e.code==='KeyA') moveLeft=true;
+  if(e.code==='KeyD') moveRight=true;
+});
+document.addEventListener('keyup', (e)=>{
+  if(e.code==='KeyW') moveForward=false;
+  if(e.code==='KeyS') moveBackward=false;
+  if(e.code==='KeyA') moveLeft=false;
+  if(e.code==='KeyD') moveRight=false;
+});
 
-public class PlayerMovement : MonoBehaviour
-{
-    public float speed = 6f;
-    public float gravity = -9.81f;
-    public float jumpHeight = 2f;
+// ===== Gun =====
+const gunGeo = new THREE.BoxGeometry(0.2,0.2,1);
+const gunMat = new THREE.MeshPhongMaterial({color:0x555555});
+const gun = new THREE.Mesh(gunGeo, gunMat);
+gun.position.set(0,-0.2,-0.5);
+camera.add(gun);
 
-    CharacterController controller;
-    Vector3 velocity;
-
-    void Start()
-    {
-        controller = GetComponent<CharacterController>();
-    }
-
-    void Update()
-    {
-        float x = Input.GetAxis("Horizontal");
-        float z = Input.GetAxis("Vertical");
-
-        Vector3 move = transform.right * x + transform.forward * z;
-        controller.Move(move * speed * Time.deltaTime);
-
-        if (Input.GetButtonDown("Jump") && controller.isGrounded)
-        {
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-        }
-
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
-    }
+// ===== Enemies =====
+const enemies = [];
+const enemyGeo = new THREE.BoxGeometry(1,1,1);
+const enemyMat = new THREE.MeshPhongMaterial({color:0xff0000});
+for(let i=0;i<5;i++){
+  const enemy = new THREE.Mesh(enemyGeo, enemyMat);
+  enemy.position.set(Math.random()*20-10,0.5,Math.random()*20-10);
+  scene.add(enemy);
+  enemies.push(enemy);
 }
 
-
------------------------------------------------------------
-SECTION 3 — MOUSE LOOK SCRIPT
------------------------------------------------------------
-File: MouseLook.cs
-
-using UnityEngine;
-
-public class MouseLook : MonoBehaviour
-{
-    public float sensitivity = 300f;
-    public Transform playerBody;
-
-    float xRotation = 0f;
-
-    void Start()
-    {
-        Cursor.lockState = CursorLockMode.Locked;
-    }
-
-    void Update()
-    {
-        float mouseX = Input.GetAxis("Mouse X") * sensitivity * Time.deltaTime;
-        float mouseY = Input.GetAxis("Mouse Y") * sensitivity * Time.deltaTime;
-
-        xRotation -= mouseY;
-        xRotation = Mathf.Clamp(xRotation, -70f, 70f);
-
-        transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-        playerBody.Rotate(Vector3.up * mouseX);
-    }
+// ===== Shooting =====
+document.addEventListener('mousedown', shoot);
+function shoot(){
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+  const intersects = raycaster.intersectObjects(enemies);
+  intersects.forEach((enemy)=>{
+    scene.remove(enemy);
+    enemies.splice(enemies.indexOf(enemy),1);
+  });
 }
 
+// ===== Animation Loop =====
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  velocity.x -= velocity.x*10.0*delta;
+  velocity.z -= velocity.z*10.0*delta;
+  direction.z = Number(moveForward)-Number(moveBackward);
+  direction.x = Number(moveRight)-Number(moveLeft);
+  direction.normalize();
+  if(moveForward||moveBackward) velocity.z -= direction.z*speed*delta;
+  if(moveLeft||moveRight) velocity.x -= direction.x*speed*delta;
+  controls.moveRight(-velocity.x);
+  controls.moveForward(-velocity.z);
 
------------------------------------------------------------
-SECTION 4 — GUN / SHOOTING SCRIPT
------------------------------------------------------------
-File: Gun.cs
+  // Enemy follow player
+  enemies.forEach(enemy=>{
+    const dir = new THREE.Vector3().subVectors(camera.position, enemy.position);
+    dir.y=0; dir.normalize();
+    enemy.position.add(dir.multiplyScalar(1*delta));
+  });
 
-using UnityEngine;
-
-public class Gun : MonoBehaviour
-{
-    public float damage = 25f;
-    public float range = 100f;
-    public Camera fpsCam;
-    public ParticleSystem muzzleFlash;
-
-    void Update()
-    {
-        if (Input.GetButtonDown("Fire1"))
-        {
-            Shoot();
-        }
-    }
-
-    void Shoot()
-    {
-        muzzleFlash.Play();
-
-        RaycastHit hit;
-        if (Physics.Raycast(fpsCam.transform.position, fpsCam.transform.forward, out hit, range))
-        {
-            EnemyAI enemy = hit.transform.GetComponent<EnemyAI>();
-            if (enemy != null)
-            {
-                enemy.TakeDamage(damage);
-            }
-        }
-    }
+  renderer.render(scene, camera);
 }
-
-
------------------------------------------------------------
-SECTION 5 — ENEMY AI SCRIPT
------------------------------------------------------------
-File: EnemyAI.cs
-
-using UnityEngine;
-using UnityEngine.AI;
-
-public class EnemyAI : MonoBehaviour
-{
-    public float health = 50f;
-    public NavMeshAgent agent;
-    public Transform player;
-
-    void Update()
-    {
-        agent.SetDestination(player.position);
-    }
-
-    public void TakeDamage(float amount)
-    {
-        health -= amount;
-        if (health <= 0)
-            Destroy(gameObject);
-    }
-}
-
-
------------------------------------------------------------
-SECTION 6 — UNITY SETUP INSTRUCTIONS
------------------------------------------------------------
-
-1. Create a new Unity 3D project.
-2. Create folders: Assets/Scripts, Assets/Prefabs, Assets/Scenes.
-3. Add a new scene: save it as MainScene.
-4. Create Player:
-   - Create empty object "Player"
-   - Add CharacterController
-   - Add PlayerMovement.cs
-5. Add a Camera under Player:
-   - Add MouseLook.cs to the Camera
-   - Drag Player to "playerBody" field
-6. Create Gun:
-   - Empty object "Gun" under Camera
-   - Add Gun.cs
-   - Add a ParticleSystem as muzzleFlash
-7. Create Enemy:
-   - 3D Capsule
-   - Add NavMeshAgent
-   - Add EnemyAI.cs
-   - Drag Player to “player” field
-   - Make it a prefab
-8. Create simple map:
-   - Add Terrain
-   - Add cubes / walls / obstacles
-9. Bake NavMesh:
-   - Window → AI → Navigation → Bake
-10. Press Play to test.
-
-
------------------------------------------------------------
-SECTION 7 — UNITY WEBGL EXPORT (FOR GITHUB PAGES)
------------------------------------------------------------
-
-To make the game work on:
-
-https://paradis-elev.github.io/F1-and-Video-games/
-
-You MUST export for WebGL.
-
-Steps:
-
-1. File → Build Settings.
-2. Select **WebGL**.
-3. Click **Switch Platform**.
-4. Click **Build**.
-5. Choose a folder named `WebGLBuild`.
-
-Unity will generate:
-
-index.html  
-Build/  
-TemplateData/  
-
-
------------------------------------------------------------
-SECTION 8 — GITHUB PAGES DEPLOY GUIDE
------------------------------------------------------------
-
-Your repo must look like:
-
-F1-and-Video-games/
-  ├── index.html        (Unity’s index.html)
-  ├── Build/
-  └── TemplateData/
-
-Steps:
-
-1. Copy all WebGLBuild files into your repo root.
-2. Commit:
-
-   git add .
-   git commit -m "Add WebGL FPS game"
-   git push
-
-3. Go to GitHub → Settings → Pages:
-   - Branch: **main**
-   - Folder: **/root**
-
-4. Save.
-
-Your game will load at:
-
-https://paradis-elev.github.io/F1-and-Video-games/
-
-
-===========================================================
-=                     END OF ONE FILE                     =
-===========================================================
+animate();
+</script>
+</body>
+</html>
